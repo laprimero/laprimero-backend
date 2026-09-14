@@ -1,6 +1,9 @@
 // LaPrimero backend — holds the AI API key server-side.
 // The browser prototype (and eventually the Android app) call this
 // server instead of ever talking to the AI provider directly.
+//
+// Uses Google's Gemini API, which has a genuine free tier (no credit
+// card required) via Google AI Studio.
 
 import express from "express";
 import cors from "cors";
@@ -10,12 +13,12 @@ app.use(cors());               // allow the browser prototype to call this serve
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.MODEL || "claude-sonnet-4-6";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = process.env.MODEL || "gemini-2.5-flash";
 
-if (!ANTHROPIC_API_KEY) {
+if (!GEMINI_API_KEY) {
   console.warn(
-    "WARNING: ANTHROPIC_API_KEY is not set. Set it as an environment " +
+    "WARNING: GEMINI_API_KEY is not set. Set it as an environment " +
     "variable in your hosting provider's dashboard — never hard-code it here."
   );
 }
@@ -32,7 +35,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({ ok: true, hasKey: Boolean(ANTHROPIC_API_KEY) });
+  res.json({ ok: true, hasKey: Boolean(GEMINI_API_KEY) });
 });
 
 app.post("/chat", async (req, res) => {
@@ -42,33 +45,30 @@ app.post("/chat", async (req, res) => {
     if (!message || typeof message !== "string") {
       return res.status(400).json({ error: "Missing 'message' string in request body." });
     }
-    if (!ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: "Server is missing ANTHROPIC_API_KEY." });
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: "Server is missing GEMINI_API_KEY." });
     }
 
     // Turn the prototype's { user, assistant } history pairs into
-    // alternating user/assistant messages for the API call.
-    const messages = [];
+    // alternating user/model turns for the Gemini API.
+    const contents = [];
     if (Array.isArray(history)) {
       for (const turn of history) {
-        if (turn.user) messages.push({ role: "user", content: turn.user });
-        if (turn.assistant) messages.push({ role: "assistant", content: turn.assistant });
+        if (turn.user) contents.push({ role: "user", parts: [{ text: turn.user }] });
+        if (turn.assistant) contents.push({ role: "model", parts: [{ text: turn.assistant }] });
       }
     }
-    messages.push({ role: "user", content: message });
+    contents.push({ role: "user", parts: [{ text: message }] });
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 400,
-        system: SYSTEM_PROMPT,
-        messages
+        contents,
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        generationConfig: { maxOutputTokens: 300 }
       })
     });
 
@@ -79,9 +79,8 @@ app.post("/chat", async (req, res) => {
     }
 
     const data = await response.json();
-    const reply = (data.content || [])
-      .filter((block) => block.type === "text")
-      .map((block) => block.text)
+    const reply = (data.candidates || [])[0]?.content?.parts
+      ?.map((p) => p.text || "")
       .join("\n")
       .trim();
 
@@ -95,3 +94,4 @@ app.post("/chat", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`LaPrimero backend listening on port ${PORT}`);
 });
+

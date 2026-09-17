@@ -273,4 +273,3 @@ app.post("/analyze-video", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`LaPrimero backend listening on port ${PORT}`);
 });
-

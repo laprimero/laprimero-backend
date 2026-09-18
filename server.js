@@ -84,10 +84,21 @@ async function callGemini(contents, systemPrompt, maxTokens = 500) {
   }
 
   const data = await response.json();
-  const reply = (data.candidates || [])[0]?.content?.parts
-    ?.map((p) => p.text || "")
+  const candidate = (data.candidates || [])[0];
+  const reply = (candidate?.content?.parts || [])
+    .map((p) => p.text || "")
     .join("\n")
     .trim();
+
+  const finishReason = candidate?.finishReason;
+  if (finishReason && finishReason !== "STOP") {
+    console.error("Gemini stopped early — finishReason:", finishReason);
+    if (reply) {
+      // We got partial text — say so plainly instead of pretending it's complete.
+      return reply + `\n\n[Cut short by the AI provider — reason: ${finishReason}. Try again, or if you uploaded a video, try describing it in words instead.]`;
+    }
+    return `The AI provider stopped without returning anything (reason: ${finishReason}). Try again, or if you uploaded a video, try describing it in words instead.`;
+  }
 
   return reply || "I didn't get a usable response that time — try again.";
 }
@@ -274,4 +285,3 @@ app.listen(PORT, () => {
   console.log(`LaPrimero backend listening on port ${PORT}`);
 });
 
-  

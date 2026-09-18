@@ -193,7 +193,7 @@ app.post("/content", async (req, res) => {
     const systemPrompt = CONTENT_SYSTEM_PROMPTS[mode];
     const contents = [{ role: "user", parts: [{ text: input }] }];
 
-    const reply = await callGemini(contents, systemPrompt, 700);
+    const reply = await callGemini(contents, systemPrompt, 1100);
     res.json({ reply });
   } catch (err) {
     handleGeminiError(err, res);
@@ -263,7 +263,7 @@ app.post("/analyze-video", async (req, res) => {
       ]
     }];
 
-    const reply = await callGemini(contents, VIDEO_ANALYSIS_PROMPT, 800);
+    const reply = await callGemini(contents, VIDEO_ANALYSIS_PROMPT, 1300);
     res.json({ reply });
   } catch (err) {
     handleGeminiError(err, res);
@@ -273,3 +273,5 @@ app.post("/analyze-video", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`LaPrimero backend listening on port ${PORT}`);
 });
+
+  

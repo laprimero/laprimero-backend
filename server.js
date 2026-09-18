@@ -53,7 +53,10 @@ async function callGemini(contents, systemPrompt, maxTokens = 500) {
     body: JSON.stringify({
       contents,
       systemInstruction: { parts: [{ text: systemPrompt }] },
-      generationConfig: { maxOutputTokens: maxTokens }
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        thinkingConfig: { thinkingBudget: 0 } // no internal reasoning needed for these writing tasks — keeps the full token budget for the actual visible answer
+      }
     })
   });
 
@@ -139,7 +142,7 @@ app.post("/chat", async (req, res) => {
     }
     contents.push({ role: "user", parts: [{ text: message }] });
 
-    const reply = await callGemini(contents, systemPrompt, 300);
+    const reply = await callGemini(contents, systemPrompt, 500);
     res.json({ reply });
   } catch (err) {
     handleGeminiError(err, res);
@@ -204,7 +207,7 @@ app.post("/content", async (req, res) => {
     const systemPrompt = CONTENT_SYSTEM_PROMPTS[mode];
     const contents = [{ role: "user", parts: [{ text: input }] }];
 
-    const reply = await callGemini(contents, systemPrompt, 1100);
+    const reply = await callGemini(contents, systemPrompt, 1600);
     res.json({ reply });
   } catch (err) {
     handleGeminiError(err, res);
@@ -274,7 +277,7 @@ app.post("/analyze-video", async (req, res) => {
       ]
     }];
 
-    const reply = await callGemini(contents, VIDEO_ANALYSIS_PROMPT, 1300);
+    const reply = await callGemini(contents, VIDEO_ANALYSIS_PROMPT, 2000);
     res.json({ reply });
   } catch (err) {
     handleGeminiError(err, res);
